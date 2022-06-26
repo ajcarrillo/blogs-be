@@ -7,7 +7,7 @@
     "start": "node index.js",
     "dev": "nodemon index.js",
     "lint": "eslint .",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest --verbose"
   },
   "keywords": [],
   "author": "Andrés Carrillo",
@@ -22,6 +22,10 @@
   },
   "devDependencies": {
     "eslint": "^8.18.0",
+    "jest": "^28.1.1",
     "nodemon": "^2.0.16"
-  }
+  },
+  "jest": {
+   "testEnvironment": "node"
+ }
 }
