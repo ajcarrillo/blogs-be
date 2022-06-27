@@ -17,7 +17,9 @@ beforeEach(async () => {
   }
 
   const passwordHash = await bcrypt.hash("secret", 10)
-  const user = new User({ username: "root", passwordHash })
+  let user = new User({ username: "root", passwordHash })
+  await user.save()
+  user = new User({ username: "ajcarrillo", passwordHash })
   await user.save()
 })
 
@@ -36,18 +38,22 @@ describe("when there is initially some blogs saved", () => {
   })
 
   test("a valid blog can be added", async () => {
-    const usersAtStart = await helper.usersInDb()
+    const response = await api
+      .post("/api/login")
+      .send({ username: "root", password: "secret" })
+
+    const token = response.body.token
 
     const newBlog = {
       title: "async/await simplifies making async calls",
       author: "Andrés Carrillo",
       url: "https://reactpatterns.com/",
       likes: 10,
-      userId: usersAtStart[0].id,
     }
 
     await api
       .post("/api/blogs")
+      .set("Authorization", `Bearer ${token}`)
       .send(newBlog)
       .expect(201)
       .expect("Content-Type", /application\/json/)
@@ -62,6 +68,95 @@ describe("when there is initially some blogs saved", () => {
   test("there is a unique id property", async () => {
     const blog = await Blog.findOne({}).exec()
     expect(blog.id).toBeDefined()
+  })
+
+  test("a blog cant created without user login", async () => {
+    const newBlog = {
+      title: "async/await simplifies making async calls",
+      author: "Andrés Carrillo",
+      url: "https://reactpatterns.com/",
+      likes: 10,
+    }
+
+    const response = await api
+      .post("/api/blogs")
+      .send(newBlog)
+      .expect(401)
+      .expect("Content-Type", /application\/json/)
+
+    const blogsAtEnd = await helper.blogsInDb()
+    expect(blogsAtEnd).toHaveLength(helper.initialBlogs.length)
+    expect(response.body.error).toBe("invalid token")
+  })
+
+  test("a blog cant be deleted for any user", async () => {
+    const blogsAtStart = await helper.blogsInDb()
+
+    const responseRoot = await api
+      .post("/api/login")
+      .send({ username: "root", password: "secret" })
+
+    const tokenRoot = responseRoot.body.token
+
+    const newBlog = {
+      title: "async/await simplifies making async calls",
+      author: "Andrés Carrillo",
+      url: "https://reactpatterns.com/",
+      likes: 10,
+    }
+
+    const response = await api
+      .post("/api/blogs")
+      .set("Authorization", `Bearer ${tokenRoot}`)
+      .send(newBlog)
+
+    const blogToDelete = response.body
+
+    const responseNewLogin = await api
+      .post("/api/login")
+      .send({ username: "ajcarrillo", password: "secret" })
+
+    const tokenNewLogin = responseNewLogin.body.token
+
+    await api
+      .delete(`/api/blogs/${blogToDelete.id}`)
+      .set("Authorization", `Bearer ${tokenNewLogin}`)
+      .expect(401)
+
+    const blogsAtEnd = await helper.blogsInDb()
+    expect(blogsAtEnd).toHaveLength(blogsAtStart.length + 1)
+  })
+
+  test("a blog can be deleted only for creator", async () => {
+    const blogsAtStart = await helper.blogsInDb()
+
+    const responseRoot = await api
+      .post("/api/login")
+      .send({ username: "root", password: "secret" })
+
+    const tokenRoot = responseRoot.body.token
+
+    const newBlog = {
+      title: "async/await simplifies making async calls",
+      author: "Andrés Carrillo",
+      url: "https://reactpatterns.com/",
+      likes: 10,
+    }
+
+    const response = await api
+      .post("/api/blogs")
+      .set("Authorization", `Bearer ${tokenRoot}`)
+      .send(newBlog)
+
+    const blogToDelete = response.body
+
+    await api
+      .delete(`/api/blogs/${blogToDelete.id}`)
+      .set("Authorization", `Bearer ${tokenRoot}`)
+      .expect(204)
+
+    const blogsAtEnd = await helper.blogsInDb()
+    expect(blogsAtEnd).toHaveLength(blogsAtStart.length)
   })
 })
 
@@ -93,17 +188,21 @@ describe("viewing a specific blog", () => {
 
 describe("adding a new blog", () => {
   test("a blog without likes gets likes set to 0", async () => {
-    const usersAtStart = await helper.usersInDb()
+    const responseLogin = await api
+      .post("/api/login")
+      .send({ username: "root", password: "secret" })
+
+    const token = responseLogin.body.token
 
     const newBlog = {
       title: "async/await simplifies making async calls",
       author: "Andrés Carrillo",
       url: "https://reactpatterns.com/",
-      userId: usersAtStart[0].id,
     }
 
     const response = await api
       .post("/api/blogs")
+      .set("Authorization", `Bearer ${token}`)
       .send(newBlog)
       .expect(201)
       .expect("Content-Type", /application\/json/)
@@ -112,42 +211,61 @@ describe("adding a new blog", () => {
   })
 
   test("a blog without title or url is not added", async () => {
-    const usersAtStart = await helper.usersInDb()
+    const responseLogin = await api
+      .post("/api/login")
+      .send({ username: "root", password: "secret" })
+
+    const token = responseLogin.body.token
 
     const newBlog = {
       author: "Andrés Carrillo",
-      userId: usersAtStart[0].id,
     }
 
-    await api.post("/api/blogs").send(newBlog).expect(400)
+    await api
+      .post("/api/blogs")
+      .set("Authorization", `Bearer ${token}`)
+      .send(newBlog)
+      .expect(400)
   })
 })
 
 describe("deleting a blog", () => {
-  test("succeeds with status code 204 if id is valid", async () => {
-    const blogsAtStart = await helper.blogsInDb()
-    const blogToDelete = blogsAtStart[0]
-
-    await api.delete(`/api/blogs/${blogToDelete.id}`).expect(204)
-
-    const blogsAtEnd = await helper.blogsInDb()
-    expect(blogsAtEnd).toHaveLength(helper.initialBlogs.length - 1)
-
-    const contents = blogsAtEnd.map((blog) => blog.title)
-    expect(contents).not.toContain(blogToDelete.title)
-  })
-
   test("fails with status code 404 if id is not given", async () => {
-    await api.delete("/api/blogs").expect(404)
+    const response = await api
+      .post("/api/login")
+      .send({ username: "root", password: "secret" })
+
+    const token = response.body.token
+
+    await api
+      .delete("/api/blogs")
+      .set("Authorization", `Bearer ${token}`)
+      .expect(404)
   })
 
   test("fails with status code 400 if id is not a string", async () => {
-    await api.delete("/api/blogs/5").expect(400)
+    const response = await api
+      .post("/api/login")
+      .send({ username: "root", password: "secret" })
+
+    const token = response.body.token
+
+    await api
+      .delete("/api/blogs/5")
+      .set("Authorization", `Bearer ${token}`)
+      .expect(400)
   })
 
   test("fails with status code 400 if id is not a valid id", async () => {
+    const response = await api
+      .post("/api/login")
+      .send({ username: "root", password: "secret" })
+
+    const token = response.body.token
+
     await api
       .delete("/api/blogs/bb84ff50-4001-4c98-990b-a9e2e6684d43")
+      .set("Authorization", `Bearer ${token}`)
       .expect(400)
   })
 })
