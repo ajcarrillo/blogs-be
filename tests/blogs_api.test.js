@@ -1,17 +1,24 @@
+const bcrypt = require("bcrypt")
 const mongoose = require("mongoose")
 const supertest = require("supertest")
 const helper = require("../utils/test_helper")
 const app = require("../app")
 const api = supertest(app)
+const User = require("../models/user")
 const Blog = require("../models/blog")
 
 beforeEach(async () => {
   await Blog.deleteMany({})
+  await User.deleteMany({})
 
   for (let blog of helper.initialBlogs) {
     let blogObject = new Blog(blog)
     await blogObject.save()
   }
+
+  const passwordHash = await bcrypt.hash("secret", 10)
+  const user = new User({ username: "root", passwordHash })
+  await user.save()
 })
 
 describe("when there is initially some blogs saved", () => {
@@ -29,11 +36,14 @@ describe("when there is initially some blogs saved", () => {
   })
 
   test("a valid blog can be added", async () => {
+    const usersAtStart = await helper.usersInDb()
+
     const newBlog = {
       title: "async/await simplifies making async calls",
       author: "Andrés Carrillo",
       url: "https://reactpatterns.com/",
       likes: 10,
+      userId: usersAtStart[0].id,
     }
 
     await api
@@ -83,10 +93,13 @@ describe("viewing a specific blog", () => {
 
 describe("adding a new blog", () => {
   test("a blog without likes gets likes set to 0", async () => {
+    const usersAtStart = await helper.usersInDb()
+
     const newBlog = {
       title: "async/await simplifies making async calls",
       author: "Andrés Carrillo",
       url: "https://reactpatterns.com/",
+      userId: usersAtStart[0].id,
     }
 
     const response = await api
@@ -99,8 +112,11 @@ describe("adding a new blog", () => {
   })
 
   test("a blog without title or url is not added", async () => {
+    const usersAtStart = await helper.usersInDb()
+
     const newBlog = {
       author: "Andrés Carrillo",
+      userId: usersAtStart[0].id,
     }
 
     await api.post("/api/blogs").send(newBlog).expect(400)
