@@ -57,6 +57,88 @@ describe("when there is initially one user in db", () => {
   })
 })
 
+describe("adding a new user", () => {
+  test("a invalid new user cant be added", async () => {
+    const newUser = {
+      name: "Andres Carrillo",
+    }
+
+    const response = await api
+      .post("/api/users")
+      .send(newUser)
+      .expect(400)
+      .expect("Content-Type", /application\/json/)
+
+    expect(response.body.error).toContain("username and password are required")
+
+    const usersAtEnd = await helper.usersInDb()
+    expect(usersAtEnd).toHaveLength(1)
+  })
+
+  test("a invalid new user with two chars in password cant be added", async () => {
+    const newUser = {
+      name: "Andres Carrillo",
+      username: "ajcarrillo",
+      password: "12",
+    }
+
+    const response = await api
+      .post("/api/users")
+      .send(newUser)
+      .expect(400)
+      .expect("Content-Type", /application\/json/)
+
+    expect(response.body.error).toContain(
+      "password must be at least 3 characters long"
+    )
+
+    const usersAtEnd = await helper.usersInDb()
+    expect(usersAtEnd).toHaveLength(1)
+  })
+
+  test("a invalid new user with existing username cant be added", async () => {
+    const newUser = {
+      name: "Andres Carrillo",
+      username: "root",
+      password: "secret",
+    }
+
+    const response = await api
+      .post("/api/users")
+      .send(newUser)
+      .expect(400)
+      .expect("Content-Type", /application\/json/)
+
+    expect(response.body.error).toContain(
+      "User validation failed: username: Error, expected `username` to be unique. Value: `root`"
+    )
+
+    const usersAtEnd = await helper.usersInDb()
+    expect(usersAtEnd).toHaveLength(1)
+  })
+
+  test("a invalid new user with two chars in username cant be added", async () => {
+    const newUser = {
+      username: "jo",
+      name: "Jonh Doe",
+      password: "secret",
+    }
+
+    const response = await api
+      .post("/api/users")
+      .send(newUser)
+      .expect(400)
+      .expect("Content-Type", /application\/json/)
+
+    expect(response.body.error).toContain(
+      `User validation failed: username: Path \`username\` (\`${newUser.username}\`) is shorter than the minimum allowed length (3)`
+    )
+
+    const usersAtEnd = await helper.usersInDb()
+    expect(usersAtEnd).toHaveLength(1)
+  })
+})
+
 afterAll(() => {
   mongoose.connection.close()
 })

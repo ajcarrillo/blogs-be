@@ -1,0 +1,11 @@
+post http://localhost:3001/api/blogs
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImFqY2FycmlsbG8iLCJpZCI6IjYyYjkyZDk5ODg4ZmQwMmQwNDVjMGMxYSIsImlhdCI6MTY1NjMwNjk0Mn0.bp0uqR7Rx0STk1_aULQ21t76pwr1LzimDJEdG0bW9ac
+
+{
+  "title": "This is a test blog",
+  "author": "John Doe",
+  "url": "http://www.test.com"
+}
+###
+get http://localhost:3001/api/blogs
