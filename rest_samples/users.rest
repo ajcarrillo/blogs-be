@@ -4,8 +4,8 @@ post http://localhost:3001/api/users
 Content-Type: application/json
 
 {
-  "name": "John",
-  "username": "john",
+  "name": "Andrés Carrillo",
+  "username": "ajcarrillo",
   "password": "secret"
 }
 ###

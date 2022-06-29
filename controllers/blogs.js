@@ -36,6 +36,8 @@ blogRouter.post("/", async (request, response) => {
 
   if (request.body.likes === undefined) {
     blog.likes = 0
+  } else {
+    blog.likes = request.body.likes
   }
 
   if (request.body.url === undefined || request.body.title === undefined) {
@@ -80,7 +82,10 @@ blogRouter.get("/:id", async (request, response) => {
 })
 
 blogRouter.put("/:id/likes", async (request, response) => {
-  const blog = await Blog.findById(request.params.id)
+  const blog = await Blog.findById(request.params.id).populate("user", {
+    username: 1,
+    name: 1,
+  })
   if (!blog) {
     response.status(404).end()
   } else {
