@@ -9,3 +9,10 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImFqY
 }
 ###
 get http://localhost:3001/api/blogs
+###
+put http://localhost:3001/api/blogs/62c0fc40dd544fd63a747e73/comments
+Content-Type: application/json
+
+{
+  "comment": "This is a new test comment"
+}

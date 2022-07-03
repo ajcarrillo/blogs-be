@@ -3,14 +3,6 @@ const blogRouter = require("express").Router()
 const User = require("../models/user")
 const Blog = require("../models/blog")
 
-// const getTokenFrom = (request) => {
-//   const authorization = request.get("authorization")
-//   if (authorization && authorization.toLowerCase().startsWith("bearer ")) {
-//     return authorization.substring(7)
-//   }
-//   return null
-// }
-
 blogRouter.get("/", async (request, response) => {
   const blogs = await Blog.find({}).populate("user", { username: 1, name: 1 })
 
@@ -32,6 +24,7 @@ blogRouter.post("/", async (request, response) => {
     author: body.author,
     url: body.url,
     user: user._id,
+    comments: [],
   })
 
   if (request.body.likes === undefined) {
@@ -90,6 +83,20 @@ blogRouter.put("/:id/likes", async (request, response) => {
     response.status(404).end()
   } else {
     blog.likes = blog.likes + 1
+    await blog.save()
+    response.json(blog)
+  }
+})
+
+blogRouter.put("/:id/comments", async (request, response) => {
+  const blog = await Blog.findById(request.params.id).populate("user", {
+    username: 1,
+    name: 1,
+  })
+  if (!blog) {
+    response.status(404).end()
+  } else {
+    blog.comments = blog.comments.concat(request.body.comment)
     await blog.save()
     response.json(blog)
   }
